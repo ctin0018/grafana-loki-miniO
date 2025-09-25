@@ -1,0 +1,80 @@
+logging {
+  level  = "debug"
+  format = "logfmt"
+}
+
+// Simulate log generation from multiple VMs
+otelcol.receiver.filelog "vm_simulator" {
+  include = [
+    "/var/log/app/vm*/*.log", 
+  ]
+  
+    include_file_path = true  
+    include_file_name = true 
+
+  // a multi-step pipeline for processing each log entr
+operators = [
+  {
+    type  = "move",
+    from  = "attributes[\"log.file.path\"]",
+    to    = "attributes.filepath",
+  },
+
+  {
+    type       = "regex_parser",
+    // regex      = "/var/log/app/(?P<vm_id>vm-[^/]+)/.*",
+    regex      = "/var/log/app/(?P<vm_id>vm-[^/]+)/(?P<job>[^/]+).log",
+    parse_from = "attributes.filepath",
+    // to         = "attributes.vm_id",
+    to         = "attributes",
+
+  },
+
+  {
+    type  = "remove",
+    field = "attributes.filepath",
+  },
+
+  {
+    type  = "add",
+    field = "attributes.datacenter",
+    value = "dc1",
+  },
+]
+
+
+  output {
+    logs = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Batch processing for efficiency
+otelcol.processor.batch "default" {
+  send_batch_size = 1000
+  timeout = "30s"
+  send_batch_max_size = 1500
+  
+  output {
+    logs = [otelcol.processor.attributes.tenant_setup.input]
+  }
+}
+
+// Add tenant routing (multi-tenancy)
+otelcol.processor.attributes "tenant_setup" {
+  action {
+    key    = "loki.tenant"
+    value  = "infrastructure"
+    action = "insert"
+  }
+
+  output {
+    logs = [otelcol.exporter.otlphttp.loki.input]
+  }
+}
+
+// EXPORT to Loki via OTLP
+otelcol.exporter.otlphttp "loki" {
+  client {
+    endpoint = "http://loki:3100/otlp"    
+  }
+}

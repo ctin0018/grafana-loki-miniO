@@ -1,0 +1,73 @@
+# docker-compose-production.yml
+version: '3.8'
+
+services:
+  loki:
+    image: grafana/loki:3.4.1
+    container_name: loki_container
+    user: "10001:10001"
+    ports:
+      - "3100:3100"
+      - "9095:9095"
+    volumes:
+      - ./loki-data:/var/lib/loki
+      - ./loki:/etc/loki
+    command: 
+      - -config.file=/etc/loki/loki-config.yaml
+    networks:
+      - observability
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy_container
+    ports:
+      - "12345:12345"
+      - "4317:4317"  # OTLP HTTP
+      - "4318:4318"  # OTLP gRPC  
+    volumes:
+      - ./alloy:/etc/alloy:ro
+      - ./logs:/var/log/app:ro
+      - alloy-data:/var/lib/alloy/data
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - --stability.level=public-preview  
+      - /etc/alloy/config.alloy
+    depends_on:
+      - loki
+    networks:
+      - observability
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana_container
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    networks:
+      - observability
+
+  # VM Log Simulator - simulates 5 different VMs
+  vm-simulator:
+    image: python:3.9-alpine
+    container_name: vm_simulator
+    working_dir: /app
+    volumes:
+      - ./logs:/var/log/app
+      - ./scripts:/app
+    command: python vm_log_simulator.py
+    networks:
+      - observability
+
+networks:
+  observability:
+    driver: bridge
+
+volumes:
+  alloy-data:
+  grafana-storage:

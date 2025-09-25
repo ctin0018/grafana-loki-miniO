@@ -1,0 +1,56 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9095
+  log_level: info
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /var/lib/loki
+  # NEW: We define the storage block here so it can be shared by the schema and storage_config.
+  storage:
+    s3:
+      endpoint: minio:9000
+      bucketnames: loki-bucket
+      access_key_id: admin
+      secret_access_key: admin123
+      insecure: true
+      s3forcepathstyle: true # REQUIRED for MinIO
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      object_store: s3
+      store: tsdb
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /var/lib/loki/tsdb-shipper-active
+    cache_location: /var/lib/loki/tsdb-shipper-cache
+
+# The `compactor`, `limits_config`, and `ingester` blocks can remain the same.
+limits_config:
+  ingestion_rate_mb: 50
+  ingestion_burst_size_mb: 100
+  retention_period: 720h
+
+compactor:
+  working_directory: /var/lib/loki/compactor
+
+ingester:
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+    final_sleep: 0s
+  chunk_idle_period: 5m
+  chunk_retain_period: 30s
+
+  
