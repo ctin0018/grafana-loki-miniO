@@ -4,7 +4,7 @@ logging {
 }
 
 // Simulate log generation from multiple VMs
-otelcol.receiver.filelog "vm_simulator" {
+otelcol.receiver.filelog "vm_simulator" { //   ???
   include = [
     "/var/log/app/vm*/*.log", 
   ]
@@ -40,6 +40,15 @@ operators = [
     field = "attributes.datacenter",
     value = "dc1",
   },
+  {
+    type = "json_parser",
+    parse_from = "body",
+    to = "attributes.log_content",
+  },
+  {
+    type = "flatten",
+    field = "attributes.log_content",
+  },
 ]
 
 
@@ -62,9 +71,9 @@ otelcol.processor.batch "default" {
 // Add tenant routing (multi-tenancy)
 otelcol.processor.attributes "tenant_setup" {
   action {
-    key    = "loki.tenant"
-    value  = "infrastructure"
-    action = "insert"
+    key            = "loki.tenant"
+    from_attribute = "team"
+    action         = "insert"
   }
 
   output {
@@ -76,5 +85,8 @@ otelcol.processor.attributes "tenant_setup" {
 otelcol.exporter.otlphttp "loki" {
   client {
     endpoint = "http://loki:3100/otlp"    
+    headers = {
+      "X-Scope-OrgID" = "{.loki.tenant}",
+    }
   }
 }

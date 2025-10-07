@@ -1,29 +1,58 @@
-# docker-compose-production.yml
-version: '3.8'
-
 services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx_gateway
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - grafana
+      - minio
+    networks:
+      - observability
+
+  # ldap-auth:
+  #   image: ghcr.io/nginx-ldap/nginx-ldap-auth-service:latest
+  #   container_name: ldap_auth_service
+  #   environment:
+  #     # --- Conpany LDAP/AD server ---
+  #     LDAP_AUTH_URL: "ldap://your-ldap-server.com:389"
+  #     LDAP_AUTH_BIND_DN: "cn=binder,ou=users,dc=example,dc=com"
+  #     LDAP_AUTH_BIND_PASSWORD: "binder_password"
+  #     LDAP_AUTH_BASE_DN: "ou=users,dc=example,dc=com"
+  #     # --- Session config ---
+  #     LDAP_AUTH_SECRET_KEY: "a_very_secret_key_for_sessions"
+  #   networks:
+  #     - observability
+
   loki:
     image: grafana/loki:3.4.1
-    container_name: loki_container
+    container_name: loki_container_miniO
     user: "10001:10001"
     ports:
-      - "3100:3100"
-      - "9095:9095"
+      - "3101:3100"
+      - "9096:9095"
     volumes:
       - ./loki-data:/var/lib/loki
       - ./loki:/etc/loki
-    command: 
+    command:
       - -config.file=/etc/loki/loki-config.yaml
+      - -config.expand-env=true
+    depends_on:
+      create-minio-bucket:
+        condition: service_completed_successfully
+
     networks:
       - observability
 
   alloy:
     image: grafana/alloy:latest
-    container_name: alloy_container
+    container_name: alloy_container_miniO
     ports:
-      - "12345:12345"
-      - "4317:4317"  # OTLP HTTP
-      - "4318:4318"  # OTLP gRPC  
+      - "12346:12345"
+      - "4319:4317"  # OTLP HTTP
+      - "4320:4318"  # OTLP gRPC  
     volumes:
       - ./alloy:/etc/alloy:ro
       - ./logs:/var/log/app:ro
@@ -32,7 +61,7 @@ services:
       - run
       - --server.http.listen-addr=0.0.0.0:12345
       - --storage.path=/var/lib/alloy/data
-      - --stability.level=public-preview  
+      - --stability.level=public-preview  # cluster host??
       - /etc/alloy/config.alloy
     depends_on:
       - loki
@@ -41,26 +70,68 @@ services:
 
   grafana:
     image: grafana/grafana-oss:latest
-    container_name: grafana_container
+    container_name: grafana_container_miniO
     ports:
-      - "3001:3000"
+      - "3002:3000"
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
+      # - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana
     networks:
       - observability
 
   # VM Log Simulator - simulates 5 different VMs
   vm-simulator:
     image: python:3.9-alpine
-    container_name: vm_simulator
+    container_name: vm_simulator_miniO
     working_dir: /app
     volumes:
       - ./logs:/var/log/app
       - ./scripts:/app
     command: python vm_log_simulator.py
+    networks:
+      - observability
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Admin UI
+    networks:
+      - observability
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+  create-minio-bucket:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MC_HOST_myminio: http://admin:admin123@minio:9000
+    command: >
+      mc alias set local http://minio:9000 admin admin123
+      echo 'Waiting for MinIO to be ready...';
+      sleep 5;
+      echo 'Creating bucket: logs...';
+      mc mb local/logs --ignore-existing;
+      echo 'Setting bucket policy to public...';
+      mc anonymous set public myminio/logs;
+      echo 'Bucket setup complete.';
+      exit 0;
     networks:
       - observability
 
@@ -71,3 +142,4 @@ networks:
 volumes:
   alloy-data:
   grafana-storage:
+  minio-data:
