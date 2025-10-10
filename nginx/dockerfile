@@ -1,0 +1,17 @@
+# Use OpenResty alpine base
+FROM openresty/openresty:alpine
+
+# Install build deps and git, then fetch lua-resty-http directly from GitHub
+RUN apk add --no-cache --virtual .build-deps build-base libstdc++ openssl-dev curl git \
+ && mkdir -p /usr/local/openresty/lualib/resty \
+ && git clone https://github.com/ledgetech/lua-resty-http /tmp/lua-resty-http \
+ && cp -R /tmp/lua-resty-http/lib/resty /usr/local/openresty/lualib/ \
+ && rm -rf /tmp/lua-resty-http \
+ && apk del .build-deps \
+ && rm -rf /var/cache/apk/* /root/.cache
+
+# Default workdir
+WORKDIR /etc/nginx
+
+# Keep upstream entrypoint from the base image
+CMD ["/usr/local/openresty/bin/openresty", "-g", "daemon off;"]

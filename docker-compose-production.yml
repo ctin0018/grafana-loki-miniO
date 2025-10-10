@@ -1,16 +1,33 @@
 services:
   nginx:
-    image: nginx:latest
-    container_name: nginx_gateway
+    build:
+      context: ./nginx
+      dockerfile: dockerfile
+    container_name: nginx_auth_proxy
     ports:
       - "80:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Mount your nginx config into OpenResty's nginx location
+      - ./nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
     depends_on:
       - grafana
       - minio
+      - cerbos
     networks:
       - observability
+
+  cerbos:
+    image: cerbos/cerbos:latest
+    container_name: cerbos
+    ports:
+      - "3592:3592"
+    command: ["server", "--config=/config/config.yaml"]
+    volumes:
+      - ./cerbos/config:/config:ro
+      - ./cerbos/policies:/policies:ro
+    networks:
+      - observability
+
 
   # ldap-auth:
   #   image: ghcr.io/nginx-ldap/nginx-ldap-auth-service:latest
@@ -134,6 +151,7 @@ services:
       exit 0;
     networks:
       - observability
+
 
 networks:
   observability:

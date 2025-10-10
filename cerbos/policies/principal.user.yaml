@@ -1,0 +1,11 @@
+apiVersion: api.cerbos.dev/v1
+principalPolicy:
+  version: default
+  principal: admin
+  rules:
+    - resource: dashboard
+      actions:
+        - action: view
+          effect: EFFECT_ALLOW
+        - action: edit
+          effect: EFFECT_ALLOW
