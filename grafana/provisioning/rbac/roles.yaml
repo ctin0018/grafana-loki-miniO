@@ -1,0 +1,70 @@
+apiVersion: 1
+
+roles:
+  - name: "Consultant"
+    description: "Role for external consultants"
+    permissions:
+      - action: "dashboards:read"
+        scope: "dashboards:*"
+      - action: "dashboards.permissions:read"
+        scope: "dashboards:*"
+
+  - name: "Product Engineer"
+    description: "Role for platform engineering team"
+    permissions:
+      - action: "dashboards:*"
+        scope: "dashboards:*"
+      - action: "datasources:*"
+        scope: "datasources:*"
+      - action: "provisioning:*"
+        scope: "provisioning:*"
+
+  - name: "Data Analyst"
+    description: "Role for digital strategy team"
+    permissions:
+      - action: "dashboards:read"
+        scope: "dashboards:*"
+      - action: "dashboards:write"
+        scope: "dashboards:*"
+      - action: "dashboards:create"
+        scope: "folders:*"
+
+  - name: "Quality Engineer"
+    description: "Role for quality engineering team"
+    permissions:
+      - action: "dashboards:read"
+        scope: "dashboards:*"
+      - action: "dashboards:write"
+        scope: "dashboards:*"
+      - action: "alerting:read"
+        scope: "alerts:*"
+
+  - name: "AIOps Engineer"
+    description: "Role for intelligence operations team"
+    permissions:
+      - action: "dashboards:*"
+        scope: "dashboards:*"
+      - action: "datasources:*"
+        scope: "datasources:*"
+      - action: "provisioning:*"
+        scope: "provisioning:*"
+      - action: "alerting:*"
+        scope: "alerts:*"
+
+  - name: "Technology Analyst"
+    description: "Role for technology innovation team"
+    permissions:
+      - action: "dashboards:read"
+        scope: "dashboards:*"
+      - action: "dashboards:write"
+        scope: "dashboards:*"
+      - action: "datasources:read"
+        scope: "datasources:*"
+
+  - name: "AIOps Intern"
+    description: "Role for AIOps interns"
+    permissions:
+      - action: "dashboards:read"
+        scope: "dashboards:*"
+      - action: "datasources:read"
+        scope: "datasources:*"

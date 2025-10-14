@@ -1,0 +1,51 @@
+apiVersion: 1
+
+teams:
+  - name: "Consultancy"
+    org_id: 1
+    folder_permissions:
+      - folder_uid: "*"
+        permissions: ["View"]
+    dashboard_permissions: ["View"]
+
+  - name: "Platform Engineering"
+    org_id: 1
+    folder_permissions:
+      - folder_uid: "*"
+        permissions: ["Edit", "Admin"]
+    dashboard_permissions: ["Edit", "Admin"]
+
+  - name: "Digital Strategy"
+    org_id: 1
+    folder_permissions:
+      - folder_uid: "*"
+        permissions: ["View", "Edit"]
+    dashboard_permissions: ["View", "Edit"]
+
+  - name: "Quality Engineering"
+    org_id: 1
+    folder_permissions:
+      - folder_uid: "*"
+        permissions: ["View", "Edit"]
+    dashboard_permissions: ["View", "Edit"]
+
+  - name: "Intelligence Operations"
+    org_id: 1
+    folder_permissions:
+      - folder_uid: "*"
+        permissions: ["Edit", "Admin"]
+    dashboard_permissions: ["Edit", "Admin"]
+
+  - name: "Technology Innovation"
+    org_id: 1
+    folder_permissions:
+      - folder_uid: "*"
+        permissions: ["View", "Edit"]
+    dashboard_permissions: ["View", "Edit"]
+
+  - name: "AIOps Interns"
+    org_id: 1
+    folder_permissions:
+      - folder_uid: "*"
+        permissions: ["View"]
+    dashboard_permissions: ["View"]

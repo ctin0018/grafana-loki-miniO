@@ -1,0 +1,34 @@
+[[servers]]
+host = "ldap://ldap.company.local"
+port = 389
+use_ssl = false
+start_tls = true
+bind_dn = "CN=binduser,OU=Users,DC=company,DC=local"
+bind_password = "bindpassword"
+search_filter = "(sAMAccountName=%s)"
+search_base_dns = ["OU=Users,DC=company,DC=local"]
+
+[servers.attributes]
+name = "givenName"
+surname = "sn"
+username = "sAMAccountName"
+member_of = "memberOf"
+email = "mail"
+
+[[servers.group_mappings]]
+group_dn = "CN=IT_Team,OU=Groups,DC=company,DC=local"
+org_role = "Editor"
+org_id = 1
+grafana_admin = false
+
+[[servers.group_mappings]]
+group_dn = "CN=Business_Team,OU=Groups,DC=company,DC=local"
+org_role = "Viewer"
+org_id = 2
+grafana_admin = false
+
+[[servers.group_mappings]]
+group_dn = "CN=CEO_Team,OU=Groups,DC=company,DC=local"
+org_role = "Viewer"
+org_id = 3
+grafana_admin = false

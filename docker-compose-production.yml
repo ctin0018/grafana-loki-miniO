@@ -93,9 +93,50 @@ services:
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
+      # Additional configurations for RBAC
+      - ./grafana/provisioning/rbac:/etc/grafana/provisioning/rbac
     environment:
+      # Admin user configuration
+      - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin123
-      # - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana
+      - GF_SECURITY_ADMIN_EMAIL=admin@localhost
+      # Server configuration
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      # Authentication configuration
+      - GF_AUTH_BASIC_ENABLED=true
+      - GF_AUTH_PROXY_ENABLED=false
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      # RBAC configuration
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_AUTO_ASSIGN_ORG=true
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Viewer
+      # Organization settings
+      - GF_ORG_NAME=Main Org.
+      # Role-based access control
+      - GF_SECURITY_ROLE_OPTIONS_ENABLED=true
+      # Enhanced RBAC configuration
+      - GF_UNIFIED_ALERTING_ENABLED=true
+      - GF_RBAC_CUSTOM_ROLE_AUTH_ENABLED=true
+      - GF_USERS_VIEWERS_CAN_EDIT=false
+      - GF_USERS_EDITORS_CAN_ADMIN=false
+      # Security settings
+      - GF_SECURITY_ALLOW_EMBEDDING=false
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_COOKIE_SAMESITE=lax
+      - GF_SECURITY_DISABLE_GRAVATAR=true
+      # Session settings
+      - GF_SESSION_PROVIDER=database
+      # User management
+      - GF_USERS_DEFAULT_THEME=dark
+      - GF_AUTH_SIGNUP_EMAIL_VERIFY=true
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=smtp.example.com:587
+      - GF_SMTP_USER=admin@example.com
+      - GF_SMTP_PASSWORD=smtp_password
+      - GF_SMTP_FROM_ADDRESS=admin@example.com
+      - GF_SMTP_FROM_NAME=Grafana Admin
     networks:
       - observability
 
