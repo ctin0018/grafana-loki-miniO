@@ -1,20 +1,21 @@
-# loki/loki-config.yaml - Simple single-tenant setup
 auth_enabled: false
 
 server:
   http_listen_port: 3100
   grpc_listen_port: 9095
   log_level: info
-  
+  # tenant_header: X-Loki-Tenant-Id
+
 common:
   instance_addr: 127.0.0.1
   path_prefix: /var/lib/loki
   storage:
     s3:
-      endpoint: minio:9000
-      bucketnames: loki-data
+      endpoint: minio:9000 
+      bucketnames: logs
       access_key_id: admin
       secret_access_key: admin123
+      s3forcepathstyle: true
       insecure: true # Important for local/no-TLS MinIO
   replication_factor: 1
   ring:
@@ -25,18 +26,11 @@ schema_config:
   configs:
     - from: 2024-01-01
       store: tsdb
-      object_store: filesystem
+      object_store: s3
       schema: v13
       index:
         prefix: index_
         period: 24h
-
-storage_config:
-  tsdb_shipper:
-    active_index_directory: /var/lib/loki/tsdb-shipper-active
-    cache_location: /var/lib/loki/tsdb-shipper-cache
-  filesystem:
-    directory: /var/lib/loki/chunks
 
 limits_config:
   ingestion_rate_mb: 50

@@ -6,6 +6,9 @@ resourcePolicy:
     - actions: ["view"]
       effect: EFFECT_ALLOW
       roles: ["viewer", "admin"]
+      condition:
+        match:
+          expr: request.principal.attr.team == request.resource.attr.team
 
     - actions: ["edit", "delete"]
       effect: EFFECT_ALLOW

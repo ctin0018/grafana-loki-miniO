@@ -86,7 +86,7 @@ services:
       - observability
 
   grafana:
-    image: grafana/grafana-oss:latest
+    image: grafana/grafana:10.4.3
     container_name: grafana_container_miniO
     ports:
       - "3002:3000"
@@ -140,14 +140,14 @@ services:
     environment:
       MC_HOST_myminio: http://admin:admin123@minio:9000
     command: >
-      mc alias set local http://minio:9000 admin admin123
-      echo 'Waiting for MinIO to be ready...';
-      sleep 5;
-      echo 'Creating bucket: logs...';
-      mc mb local/logs --ignore-existing;
-      echo 'Setting bucket policy to public...';
-      mc anonymous set public myminio/logs;
-      echo 'Bucket setup complete.';
+      mc alias set local http://minio:9000 admin admin123 &&
+      echo 'Waiting for MinIO to be ready...' &&
+      sleep 5 &&
+      echo 'Creating bucket: logs...' &&
+      mc mb local/logs --ignore-existing &&
+      echo 'Setting bucket policy to public...' &&
+      mc anonymous set public local/logs &&
+      echo 'Bucket setup complete.' &&
       exit 0;
     networks:
       - observability
