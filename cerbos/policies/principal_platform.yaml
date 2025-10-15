@@ -1,0 +1,19 @@
+apiVersion: api.cerbos.dev/v1
+principalPolicy:
+  version: default
+  principal: platform_engineer
+  rules:
+    - resource: dashboard
+      actions:
+        - action: view
+          effect: EFFECT_ALLOW
+        - action: edit
+          effect: EFFECT_ALLOW
+        - action: delete
+          effect: EFFECT_ALLOW
+    - resource: datasource
+      actions:
+        - action: view
+          effect: EFFECT_ALLOW
+        - action: edit
+          effect: EFFECT_ALLOW

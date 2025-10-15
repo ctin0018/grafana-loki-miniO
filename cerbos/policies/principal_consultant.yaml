@@ -1,0 +1,13 @@
+apiVersion: api.cerbos.dev/v1
+principalPolicy:
+  version: default
+  principal: consultant
+  rules:
+    - resource: dashboard
+      actions:
+        - action: view
+          effect: EFFECT_ALLOW
+    - resource: datasource
+      actions:
+        - action: view
+          effect: EFFECT_ALLOW
