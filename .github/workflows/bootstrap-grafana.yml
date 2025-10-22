@@ -1,0 +1,32 @@
+name: Bootstrap Grafana Users
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, chris ]
+
+jobs:
+  bootstrap:
+    name: Create Grafana users and teams
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run provisioning script
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
+          GRAFANA_ADMIN_PASS: ${{ secrets.GRAFANA_ADMIN_PASS }}
+        run: |
+          python scripts/create_grafana_users.py
