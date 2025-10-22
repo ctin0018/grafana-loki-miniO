@@ -3,10 +3,17 @@ resourcePolicy:
   version: default
   resource: dashboard
   rules:
+    # The Consultant role can only view dashboards
     - actions: ["view"]
       effect: EFFECT_ALLOW
-      roles: ["viewer", "admin"]
+      roles: ["consultant"]
 
-    - actions: ["edit", "delete"]
+    # The Platform Member role can view and edit, but not delete
+    - actions: ["view", "edit"]
       effect: EFFECT_ALLOW
-      roles: ["admin"]
+      roles: ["platform_member"]
+
+    # The Platform Lead role has full control
+    - actions: ["view", "edit", "delete"]
+      effect: EFFECT_ALLOW
+      roles: ["platform_lead"]
