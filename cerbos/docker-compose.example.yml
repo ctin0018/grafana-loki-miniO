@@ -1,0 +1,37 @@
+# Example Cerbos docker-compose.yml
+# 
+# This is an example configuration for running Cerbos.
+# Place this in CERBOS_REMOTE_BASE_PATH on your remote server.
+#
+# Usage:
+#   docker-compose up -d
+
+version: '3.8'
+
+services:
+  cerbos:
+    image: ghcr.io/cerbos/cerbos:latest
+    container_name: cerbos
+    ports:
+      - "3592:3592"  # gRPC port
+      - "3593:3593"  # HTTP port
+    volumes:
+      # Mount your policies directory here
+      # This path should match CERBOS_REMOTE_POLICIES_PATH
+      - ./policies:/policies:ro
+    command:
+      - server
+      - --config=/config/config.yaml
+    volumes:
+      - ./policies:/policies:ro
+      - ./config:/config:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3593/_cerbos/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  default:
+    name: cerbos-net

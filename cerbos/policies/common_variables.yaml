@@ -1,0 +1,18 @@
+---
+apiVersion: api.cerbos.dev/v1
+description: |-
+  Common variables shared across policies
+metadata:
+  annotations:
+    created-by: gitops-workflow
+variables:
+  local:
+    is_weekend:
+      name: is_weekend
+      expr: |
+        now().getDayOfWeek() == 0 || now().getDayOfWeek() == 6
+    
+    business_hours:
+      name: business_hours
+      expr: |
+        now().getHours() >= 9 && now().getHours() < 17

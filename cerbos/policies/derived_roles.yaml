@@ -1,0 +1,41 @@
+---
+apiVersion: api.cerbos.dev/v1
+description: |-
+  Common roles used across policies
+metadata:
+  annotations:
+    created-by: gitops-workflow
+variables:
+  import:
+    - common_variables
+
+derivedRoles:
+  name: common_roles
+  definitions:
+    - name: admin
+      parentRoles:
+        - admin
+        
+    - name: team_member
+      parentRoles:
+        - user
+      condition:
+        match:
+          expr: request.resource.attr.team_id == request.principal.attr.team_id
+          
+    - name: team_lead
+      parentRoles:
+        - user
+      condition:
+        match:
+          all:
+            of:
+              - expr: request.resource.attr.team_id == request.principal.attr.team_id
+              - expr: request.principal.attr.role == "lead"
+                
+    - name: resource_owner
+      parentRoles:
+        - user
+      condition:
+        match:
+          expr: request.resource.attr.owner_id == request.principal.id
