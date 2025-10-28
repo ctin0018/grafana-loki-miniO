@@ -1,0 +1,24 @@
+# Example Cerbos configuration file
+# Place this in config/config.yaml on your remote server
+
+server:
+  httpListenAddr: ":3593"
+  grpcListenAddr: ":3592"
+  
+storage:
+  driver: "disk"
+  disk:
+    directory: /policies
+    watchForChanges: true
+
+# Optional: Enable audit logging
+audit:
+  enabled: true
+  backend: local
+  local:
+    storagePath: /audit-logs
+    retentionPeriod: 168h  # 7 days
+
+# Optional: Enable metrics
+telemetry:
+  enabled: true

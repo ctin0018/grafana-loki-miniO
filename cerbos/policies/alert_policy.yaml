@@ -1,0 +1,43 @@
+---
+apiVersion: api.cerbos.dev/v1
+resourcePolicy:
+  version: "1.0"
+  resource: "alert"
+  importDerivedRoles:
+    - common_roles
+  
+  rules:
+    - actions:
+        - view
+        - read
+      effect: EFFECT_ALLOW
+      roles:
+        - user
+        - viewer
+      condition:
+        match:
+          expr: request.resource.attr.team_id == request.principal.attr.team_id
+    
+    - actions:
+        - create
+        - edit
+        - update
+      effect: EFFECT_ALLOW
+      derivedRoles:
+        - team_member
+        - team_lead
+    
+    - actions:
+        - delete
+        - acknowledge
+      effect: EFFECT_ALLOW
+      derivedRoles:
+        - team_lead
+        - admin
+    
+    - actions:
+        - configure
+        - silence
+      effect: EFFECT_ALLOW
+      derivedRoles:
+        - admin

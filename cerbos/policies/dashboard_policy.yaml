@@ -1,0 +1,59 @@
+---
+apiVersion: api.cerbos.dev/v1
+resourcePolicy:
+  version: "1.0"
+  resource: "dashboard"
+  importDerivedRoles:
+    - common_roles
+  schemas:
+    principalSchema:
+      ref: cerbos:///principal.json
+    resourceSchema:
+      ref: cerbos:///dashboard.json
+  
+  rules:
+    - actions:
+        - view
+        - read
+      effect: EFFECT_ALLOW
+      roles:
+        - user
+        - viewer
+      condition:
+        match:
+          any:
+            of:
+              - expr: request.resource.attr.visibility == "public"
+              - expr: request.resource.attr.team_id == request.principal.attr.team_id
+    
+    - actions:
+        - edit
+        - update
+      effect: EFFECT_ALLOW
+      derivedRoles:
+        - team_member
+        - resource_owner
+    
+    - actions:
+        - delete
+      effect: EFFECT_ALLOW
+      derivedRoles:
+        - resource_owner
+        - admin
+    
+    - actions:
+        - create
+      effect: EFFECT_ALLOW
+      roles:
+        - user
+      condition:
+        match:
+          expr: request.principal.attr.verified == true
+    
+    - actions:
+        - share
+      effect: EFFECT_ALLOW
+      derivedRoles:
+        - team_lead
+        - resource_owner
+        - admin
