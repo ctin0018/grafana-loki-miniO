@@ -1,0 +1,48 @@
+name: Bootstrap Grafana Users
+
+on:
+  workflow_dispatch: # Allow manual trigger
+  push:
+    branches:
+      - main
+      - chris
+    paths:
+      - 'scripts/create_grafana_users.py'
+      - '.github/workflows/bootstrap-grafana.yml'
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Run Grafana bootstrap script
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
+          GRAFANA_ADMIN_PASS: ${{ secrets.GRAFANA_ADMIN_PASS }}
+        run: |
+          python scripts/create_grafana_users.py
+
+      - name: Bootstrap summary
+        if: always()
+        run: |
+          echo "### Grafana Bootstrap Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Grafana URL:** ${{ secrets.GRAFANA_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Teams and users have been provisioned in Grafana." >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,99 @@
+name: Deploy Cerbos Policies
+
+on:
+  workflow_dispatch: # Allow manual trigger
+  push:
+    branches:
+      - main
+      - chris
+    paths:
+      - 'cerbos/policies/**'
+      - '.github/workflows/deploy-cerbos-policies.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.SSH_PORT || '22' }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Copy policies to remote host
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          REMOTE_POLICIES_PATH: ${{ secrets.CERBOS_REMOTE_POLICIES_PATH }}
+        run: |
+          echo "Copying Cerbos policies to remote host..."
+          
+          # Create remote directory if it doesn't exist
+          ssh -i ~/.ssh/deploy_key -p $SSH_PORT $SSH_USER@$SSH_HOST \
+            "mkdir -p $REMOTE_POLICIES_PATH"
+          
+          # Sync policies directory to remote host
+          scp -i ~/.ssh/deploy_key -P $SSH_PORT -r cerbos/policies/* \
+            $SSH_USER@$SSH_HOST:$REMOTE_POLICIES_PATH/
+          
+          echo "✓ Policies copied successfully"
+
+      - name: Restart Cerbos container
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          CERBOS_BASE_PATH: ${{ secrets.CERBOS_REMOTE_BASE_PATH }}
+        run: |
+          echo "Restarting Cerbos container..."
+          
+          ssh -i ~/.ssh/deploy_key -p $SSH_PORT $SSH_USER@$SSH_HOST << 'ENDSSH'
+            cd ${{ secrets.CERBOS_REMOTE_BASE_PATH }}
+            
+            # Check if docker-compose.yml exists
+            if [ ! -f docker-compose.yml ]; then
+              echo "Error: docker-compose.yml not found in ${{ secrets.CERBOS_REMOTE_BASE_PATH }}"
+              exit 1
+            fi
+            
+            # Restart Cerbos service
+            docker-compose restart cerbos || docker compose restart cerbos
+            
+            echo "✓ Cerbos container restarted successfully"
+          ENDSSH
+
+      - name: Verify deployment
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          REMOTE_POLICIES_PATH: ${{ secrets.CERBOS_REMOTE_POLICIES_PATH }}
+        run: |
+          echo "Verifying policy deployment..."
+          
+          ssh -i ~/.ssh/deploy_key -p $SSH_PORT $SSH_USER@$SSH_HOST \
+            "ls -lah $REMOTE_POLICIES_PATH"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/deploy_key
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "### Cerbos Policy Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Remote Host:** ${{ secrets.SSH_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Policies Path:** ${{ secrets.CERBOS_REMOTE_POLICIES_PATH }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Cerbos policies have been deployed and the container has been restarted." >> $GITHUB_STEP_SUMMARY
