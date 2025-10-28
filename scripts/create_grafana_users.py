@@ -1,137 +1,229 @@
 #!/usr/bin/env python3
 """
-Create Grafana users and teams via Grafana HTTP API.
-Usage: python create_grafana_users.py
-Requires: requests (pip install requests)
-
-This script will create two teams `platform_engineer` and `consultant`,
-create two users with the same usernames, and add users to their teams.
+Provision Grafana users and teams from a JSON/YAML spec.
+Usage:
+  python create_grafana_users.py --spec path/to/spec.yaml
+Environment:
+  GRAFANA_URL              (default http://localhost:3000)
+  GRAFANA_ADMIN_USER       (fallback when no token, default admin)
+  GRAFANA_ADMIN_PASS       (fallback when no token, default admin)
+  GRAFANA_TOKEN            (optional HTTP header bearer token)
 """
+from __future__ import annotations
+
+import argparse
+import json
 import os
 import sys
 import time
+from pathlib import Path
+from typing import Dict, Iterable, List
+
 import requests
 
-GRAFANA_URL = os.environ.get("GRAFANA_URL", "http://localhost:3002")
+try:
+    import yaml  # type: ignore
+except ImportError:  # pragma: no cover
+    yaml = None
+
+GRAFANA_URL = os.environ.get("GRAFANA_URL", "http://localhost:3000")
 ADMIN_USER = os.environ.get("GRAFANA_ADMIN_USER", "admin")
-ADMIN_PASS = os.environ.get("GRAFANA_ADMIN_PASS", "admin123")
+ADMIN_PASS = os.environ.get("GRAFANA_ADMIN_PASS", "admin")
+GRAFANA_TOKEN = os.environ.get("GRAFANA_TOKEN")
 
-USERS = [
-    {"login": "platform_engineer", "email": "platform@example.com", "name": "Platform Engineer", "password": "PlatformPass123"},
-    {"login": "consultant", "email": "consultant@example.com", "name": "Consultant", "password": "ConsultantPass123"},
-]
-
-TEAMS = [
-    {"name": "platform_engineer", "email": ""},
-    {"name": "consultant", "email": ""},
-]
+TEAM_PERMISSION = {"Viewer": 1, "Editor": 2}
+DEFAULT_SPEC = {
+    "users": [
+        {
+            "login": "platform_lead",
+            "name": "Platform Lead",
+            "email": "platform.lead@example.com",
+            "password": "ChangeMe!1",
+        },
+        {
+            "login": "platform_member",
+            "name": "Platform Member",
+            "email": "platform.member@example.com",
+            "password": "ChangeMe!1",
+        },
+        {
+            "login": "consultant",
+            "name": "Consultant",
+            "email": "consultant@example.com",
+            "password": "ChangeMe!1",
+        },
+    ],
+    "teams": [
+        {
+            "name": "platform_engineering",
+            "email": "",
+            "members": [
+                {"login": "platform_lead", "role": "Editor"},
+                {"login": "platform_member", "role": "Viewer"},
+            ],
+        },
+        {
+            "name": "consultants",
+            "email": "",
+            "members": [{"login": "consultant", "role": "Viewer"}],
+        },
+    ],
+}
 
 session = requests.Session()
-session.auth = (ADMIN_USER, ADMIN_PASS)
 session.headers.update({"Content-Type": "application/json"})
+if GRAFANA_TOKEN:
+    session.headers["Authorization"] = f"Bearer {GRAFANA_TOKEN}"
+else:
+    session.auth = (ADMIN_USER, ADMIN_PASS)
 
 
-def api_post(path, payload):
-    url = f"{GRAFANA_URL}/api{path}"
-    r = session.post(url, json=payload)
-    if r.status_code not in (200, 201):
-        print(f"POST {path} -> {r.status_code}: {r.text}")
-    return r
+def api_request(method: str, path: str, expected: Iterable[int], **kwargs):
+    url = f"{GRAFANA_URL.rstrip('/')}/api{path}"
+    resp = session.request(method, url, timeout=15, **kwargs)
+    if resp.status_code not in expected:
+        print(f"{method} {path} -> {resp.status_code}: {resp.text}")
+        return None
+    if resp.content:
+        try:
+            return resp.json()
+        except ValueError:
+            return resp.text
+    return None
 
 
-def api_get(path):
-    url = f"{GRAFANA_URL}/api{path}"
-    r = session.get(url)
-    if r.status_code != 200:
-        print(f"GET {path} -> {r.status_code}: {r.text}")
-    return r
-
-
-def create_user(user):
+def ensure_user(user: Dict) -> int | None:
     payload = {
         "name": user["name"],
         "login": user["login"],
         "email": user["email"],
         "password": user["password"],
     }
-    r = api_post("/users", payload)
-    if r.status_code in (200, 201):
-        uid = r.json().get("id")
-        print(f"Created user {user['login']} (id={uid})")
+    created = api_request("POST", "/users", {200, 201}, json=payload)
+    if created:
+        uid = created.get("id")
+        print(f"[user] created {user['login']} (id={uid})")
         return uid
-    else:
-        # Maybe the user exists, try to lookup
-        r2 = api_get(f"/users/lookup?loginOrEmail={user['login']}")
-        if r2.status_code == 200:
-            print(f"User {user['login']} already exists")
-            return r2.json().get('id')
+
+    lookup = api_request(
+        "GET", f"/users/lookup?loginOrEmail={user['login']}", {200}
+    )
+    if lookup:
+        print(f"[user] exists {user['login']} (id={lookup.get('id')})")
+        return lookup.get("id")
     return None
 
 
-def create_team(team):
+def ensure_team(team: Dict) -> int | None:
     payload = {"name": team["name"], "email": team.get("email", "")}
-    r = api_post("/teams", payload)
-    if r.status_code in (200, 201):
-        tid = r.json().get("teamId") or r.json().get("id")
-        print(f"Created team {team['name']} (id={tid})")
+    created = api_request("POST", "/teams", {200, 201}, json=payload)
+    if created:
+        tid = created.get("teamId") or created.get("id")
+        print(f"[team] created {team['name']} (id={tid})")
         return tid
-    else:
-        # Try to find existing
-        r2 = api_get(f"/teams/search?name={team['name']}")
-        if r2.status_code == 200 and r2.json().get("totalCount", 0) > 0:
-            teams = r2.json().get("teams", [])
-            if teams:
-                tid = teams[0].get("id")
-                print(f"Team {team['name']} already exists (id={tid})")
-                return tid
+
+    search = api_request(
+        "GET", f"/teams/search?name={team['name']}", {200}
+    )
+    if search and search.get("totalCount"):
+        tid = search["teams"][0]["id"]
+        print(f"[team] exists {team['name']} (id={tid})")
+        return tid
     return None
 
 
-def add_user_to_team(user_id, team_id, role="Viewer"):
-    # role can be Viewer or Editor
-    path = f"/teams/{team_id}/members"
-    payload = {"userId": user_id, "permission": role}
-    r = api_post(path, payload)
-    if r.status_code in (200, 201):
-        print(f"Added user {user_id} to team {team_id} as {role}")
-        return True
-    else:
-        print(f"Failed to add user {user_id} to team {team_id}: {r.status_code} {r.text}")
-    return False
+def list_team_members(team_id: int) -> Dict[int, Dict]:
+    members = api_request("GET", f"/teams/{team_id}/members", {200}) or []
+    return {item["userId"]: item for item in members}
 
 
-if __name__ == '__main__':
-    # quick health check
-    try:
-        r = requests.get(f"{GRAFANA_URL}/api/health")
-        if r.status_code != 200:
-            print("Grafana API health check failed:", r.status_code, r.text)
-            sys.exit(1)
-    except Exception as e:
-        print("Failed to reach Grafana API:", e)
+def add_member(team_id: int, user_id: int, role: str) -> None:
+    payload = {
+        "userId": user_id,
+        "permission": TEAM_PERMISSION.get(role, TEAM_PERMISSION["Viewer"]),
+    }
+    api_request("POST", f"/teams/{team_id}/members", {200, 201}, json=payload)
+    print(f"[team] add user {user_id} -> team {team_id} as {role}")
+
+
+def remove_member(team_id: int, user_id: int) -> None:
+    api_request("DELETE", f"/teams/{team_id}/members/{user_id}", {200, 202, 204})
+    print(f"[team] removed user {user_id} from team {team_id}")
+
+
+def sync_team_members(team_id: int, member_specs: List[Dict], user_ids: Dict[str, int]):
+    desired = {}
+    for member in member_specs:
+        login = member["login"]
+        if login not in user_ids:
+            print(f"[warn] user {login} missing, skipping membership")
+            continue
+        desired[user_ids[login]] = member.get("role", "Viewer")
+
+    current = list_team_members(team_id)
+
+    for user_id, role in desired.items():
+        if user_id not in current:
+            add_member(team_id, user_id, role)
+        else:
+            current_perm = current[user_id].get("permission")
+            wanted_perm = TEAM_PERMISSION.get(role, TEAM_PERMISSION["Viewer"])
+            if current_perm != wanted_perm:
+                remove_member(team_id, user_id)
+                add_member(team_id, user_id, role)
+
+    for user_id in set(current) - set(desired):
+        remove_member(team_id, user_id)
+
+
+def load_spec(path: str | None) -> Dict:
+    if not path:
+        return DEFAULT_SPEC
+    spec_path = Path(path)
+    if not spec_path.exists():
+        raise FileNotFoundError(spec_path)
+    with spec_path.open("r", encoding="utf-8") as fh:
+        text = fh.read()
+    if spec_path.suffix.lower() in {".yaml", ".yml"}:
+        if not yaml:
+            raise RuntimeError("pyyaml not installed; pip install pyyaml")
+        return yaml.safe_load(text)
+    return json.loads(text)
+
+
+def health_check() -> None:
+    resp = session.get(f"{GRAFANA_URL.rstrip('/')}/api/health", timeout=10)
+    if resp.status_code != 200:
+        print("Grafana API health check failed:", resp.status_code, resp.text)
         sys.exit(1)
 
-    user_ids = {}
-    for u in USERS:
-        uid = create_user(u)
-        if uid:
-            user_ids[u['login']] = uid
-        time.sleep(0.5)
 
-    team_ids = {}
-    for t in TEAMS:
-        tid = create_team(t)
-        if tid:
-            team_ids[t['name']] = tid
-        time.sleep(0.5)
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Provision Grafana identities.")
+    parser.add_argument(
+        "--spec",
+        help="Path to JSON/YAML spec file (defaults to in-script sample).",
+    )
+    args = parser.parse_args()
 
-    # Add users to teams
-    for username, uid in user_ids.items():
-        team_name = username
-        tid = team_ids.get(team_name)
-        if tid:
-            add_user_to_team(uid, tid, role='Viewer')
+    health_check()
+    spec = load_spec(args.spec)
 
-    print("Done. Users created:")
-    for u in USERS:
-        print(f" - {u['login']} (password: {u['password']})")
+    user_ids: Dict[str, int] = {}
+    for user in spec.get("users", []):
+        uid = ensure_user(user)
+        if uid is not None:
+            user_ids[user["login"]] = uid
+        time.sleep(0.3)
+
+    for team in spec.get("teams", []):
+        tid = ensure_team(team)
+        if tid is None:
+            print(f"[error] failed to ensure team {team['name']}")
+            continue
+        sync_team_members(tid, team.get("members", []), user_ids)
+        time.sleep(0.3)
+
+
+if __name__ == "__main__":
+    main()

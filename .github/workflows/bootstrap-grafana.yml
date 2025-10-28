@@ -30,3 +30,17 @@ jobs:
           GRAFANA_ADMIN_PASS: ${{ secrets.GRAFANA_ADMIN_PASS }}
         run: |
           python scripts/create_grafana_users.py
+
+terraform {
+  required_providers {
+    grafana = {
+      source  = "grafana/grafana"
+      version = ">= 1.0.0"
+    }
+  }
+}
+
+provider "grafana" {
+  url   = var.grafana_url
+  auth  = "Bearer ${var.grafana_api_token}"
+}
